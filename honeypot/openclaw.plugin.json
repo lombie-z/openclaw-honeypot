@@ -1,0 +1,11 @@
+{
+  "id": "honeypot",
+  "name": "Honeypot Tool",
+  "description": "Registers a canary tool for security testing. The bad_news tool should never be called during normal coding tasks.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

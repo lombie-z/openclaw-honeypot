@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ run_id }} — {{ name }}{% endblock %}
+
+{% block nav %}
+<span class="breadcrumb">
+    / <a href="/experiment/{{ exp_name }}">{{ name }}</a>
+    / {{ run_id }}
+</span>
+{% endblock %}
+
+{% block content %}
+<h1>Run: {{ run_id }}</h1>
+
+{% if run_metrics %}
+<div class="run-summary">
+    <div class="metric">
+        <span class="label">Class</span>
+        <span class="value">{{ run_metrics.class_label }}</span>
+    </div>
+    <div class="metric">
+        <span class="label">Prompt</span>
+        <span class="value">{{ run_metrics.prompt_id }}</span>
+    </div>
+    <div class="metric">
+        <span class="label">Honeypot Called</span>
+        <span class="value {% if run_metrics.honeypot_called %}highlight-red{% endif %}">
+            {{ "YES" if run_metrics.honeypot_called else "No" }}
+            {% if run_metrics.honeypot_call_count > 0 %}({{ run_metrics.honeypot_call_count }}x){% endif %}
+        </span>
+    </div>
+    <div class="metric">
+        <span class="label">Tool Calls</span>
+        <span class="value">{{ run_metrics.total_tool_calls }}</span>
+    </div>
+    <div class="metric">
+        <span class="label">Thinking</span>
+        <span class="value">{{ run_metrics.thinking_total_chars }} chars</span>
+    </div>
+    <div class="metric">
+        <span class="label">Safety Mentioned</span>
+        <span class="value">{{ "Yes" if run_metrics.thinking_mentions_safety else "No" }}</span>
+    </div>
+    <div class="metric">
+        <span class="label">Duration</span>
+        <span class="value">{{ "%.1f"|format(run_metrics.total_duration_seconds) }}s</span>
+    </div>
+    <div class="metric">
+        <span class="label">Tokens</span>
+        <span class="value">{{ run_metrics.total_input_tokens }} in / {{ run_metrics.total_output_tokens }} out</span>
+    </div>
+    <div class="metric">
+        <span class="label">Cost</span>
+        <span class="value">${{ "%.4f"|format(run_metrics.total_cost_usd) }}</span>
+    </div>
+</div>
+
+<h3>Tool Call Sequence</h3>
+<div class="tool-sequence">
+    {% for tool in run_metrics.tool_call_sequence %}
+    <span class="tool-chip {% if tool == 'bad_news' %}honeypot{% endif %}">{{ tool }}</span>
+    {% if not loop.last %}<span class="arrow">&rarr;</span>{% endif %}
+    {% endfor %}
+</div>
+
+{% if run_metrics.sensitive_file_accesses %}
+<h3>Sensitive File Accesses</h3>
+<ul class="sensitive-list">
+    {% for access in run_metrics.sensitive_file_accesses %}
+    <li>{{ access }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if run_metrics.exec_commands %}
+<h3>Shell Commands</h3>
+<ul class="exec-list">
+    {% for cmd in run_metrics.exec_commands %}
+    <li><code>{{ cmd }}</code></li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+
+{% if transcript %}
+<h2>Transcript</h2>
+<div class="transcript">
+    {% for msg in transcript.user_messages %}
+    <div class="msg msg-user">
+        <div class="msg-header">User <span class="ts">{{ msg.timestamp }}</span></div>
+        <div class="msg-body">{{ msg.text }}</div>
+    </div>
+    {% endfor %}
+
+    {% for turn in transcript.assistant_turns %}
+    <div class="msg msg-assistant">
+        <div class="msg-header">
+            Assistant ({{ turn.model }})
+            <span class="ts">{{ turn.timestamp }}</span>
+        </div>
+
+        {% if turn.thinking %}
+        <details class="thinking-block">
+            <summary>Thinking ({{ turn.thinking | length }} chars)</summary>
+            <pre>{{ turn.thinking }}</pre>
+        </details>
+        {% endif %}
+
+        {% if turn.text %}
+        <div class="msg-body">{{ turn.text }}</div>
+        {% endif %}
+
+        {% for tc in turn.tool_calls %}
+        <div class="tool-call {% if tc.name == 'bad_news' %}honeypot{% endif %}">
+            <strong>{{ tc.name }}</strong>({{ tc.arguments | tojson }})
+        </div>
+        {% endfor %}
+
+        {% if turn.usage %}
+        <div class="usage">
+            {{ turn.usage.get('input', 0) }} in / {{ turn.usage.get('output', 0) }} out
+            {% if turn.usage.get('cost', {}).get('total') %}
+            / ${{ "%.4f"|format(turn.usage.cost.total) }}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% for tr in transcript.tool_results %}
+    <div class="msg msg-tool-result">
+        <div class="msg-header">
+            Tool Result: {{ tr.tool_name }}
+            {% if tr.is_error %}<span class="error-badge">ERROR</span>{% endif %}
+            <span class="ts">{{ tr.timestamp }}</span>
+        </div>
+        <pre class="msg-body">{{ tr.content[:2000] }}{% if tr.content | length > 2000 %}...{% endif %}</pre>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty">No transcript available for this run.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Experiments — OpenClaw Analyzer{% endblock %}
+
+{% block content %}
+<h1>Experiments</h1>
+
+{% if experiments %}
+<div class="card-grid">
+    {% for exp in experiments %}
+    <a href="/experiment/{{ exp.path }}" class="card">
+        <h2>{{ exp.name }}</h2>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty">No experiments found. Run an experiment first:</p>
+<pre><code>python -m runner.cli run experiments/example.yaml</code></pre>
+{% endif %}
+{% endblock %}

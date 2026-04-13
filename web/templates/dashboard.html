@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — OpenClaw Analyzer{% endblock %}
+
+{% block nav %}
+<span class="breadcrumb">/ {{ name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>{{ name }}</h1>
+    <div class="meta">
+        <span>Model: <strong>{{ model }}</strong></span>
+        <span>Runs: <strong>{{ total_runs }}</strong></span>
+        <span>Classes: <strong>{{ classes | length }}</strong></span>
+    </div>
+</div>
+
+<!-- Class toggle -->
+<div class="class-toggles" id="class-toggles">
+    {% for cls in classes %}
+    <label>
+        <input type="checkbox" checked data-class="{{ cls }}" onchange="toggleClass()">
+        <span class="class-badge class-{{ loop.index0 % 6 }}">{{ cls }}</span>
+    </label>
+    {% endfor %}
+</div>
+
+<!-- Tab navigation -->
+<div class="tabs">
+    <button class="tab active" onclick="showTab('overview')">Overview</button>
+    <button class="tab" onclick="showTab('tools')">Tools</button>
+    <button class="tab" onclick="showTab('thinking')">Thinking</button>
+    <button class="tab" onclick="showTab('stats')">Statistics</button>
+    <button class="tab" onclick="showTab('runs')">All Runs</button>
+</div>
+
+<!-- Overview tab -->
+<div class="tab-content active" id="tab-overview">
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h3>Attack Success Rate by Class</h3>
+            <canvas id="asr-chart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Mean Token Usage</h3>
+            <canvas id="tokens-chart"></canvas>
+        </div>
+    </div>
+
+    <h3>Summary</h3>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Class</th>
+                <th>Runs</th>
+                <th>ASR</th>
+                <th>Honeypot Calls</th>
+                <th>Avg Tokens</th>
+                <th>Avg Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cls in classes %}
+            <tr data-class="{{ cls }}">
+                <td><span class="class-badge class-{{ loop.index0 % 6 }}">{{ cls }}</span></td>
+                <td>{{ class_data[cls].n_runs }}</td>
+                <td class="{% if class_data[cls].asr > 0 %}highlight-red{% endif %}">
+                    {{ "%.1f%%"|format(class_data[cls].asr * 100) }}
+                </td>
+                <td>{{ class_data[cls].honeypot_total_calls }}</td>
+                <td>{{ "%.0f"|format(class_data[cls].mean_total_tokens) }}</td>
+                <td>${{ "%.4f"|format(class_data[cls].mean_cost_usd) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Tools tab -->
+<div class="tab-content" id="tab-tools">
+    <div class="chart-grid">
+        <div class="chart-card wide">
+            <h3>Tool Distribution by Class</h3>
+            <canvas id="tool-dist-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Thinking tab -->
+<div class="tab-content" id="tab-thinking">
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h3>Mean Thinking Length (chars)</h3>
+            <canvas id="thinking-chart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Safety Mention Rate</h3>
+            <canvas id="safety-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics tab -->
+<div class="tab-content" id="tab-stats">
+    <h3>Statistical Tests (vs standard)</h3>
+    {% if statistical_tests %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Comparison</th>
+                <th>Metric</th>
+                <th>Test</th>
+                <th>p-value</th>
+                <th>Significant?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in statistical_tests %}
+            <tr>
+                <td>{{ t.get('comparison', '') }}</td>
+                <td>{{ t.get('metric', '') }}</td>
+                <td>{{ t.get('test', '') }}</td>
+                <td>{{ "%.4f"|format(t.p_value) if t.p_value is defined else '—' }}</td>
+                <td>
+                    {% if t.p_value is defined and t.p_value < 0.05 %}
+                    <span class="sig-yes">Yes (p &lt; 0.05)</span>
+                    {% elif t.p_value is defined %}
+                    <span class="sig-no">No</span>
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No statistical tests available (need scipy, or only one class present).</p>
+    {% endif %}
+</div>
+
+<!-- All Runs tab -->
+<div class="tab-content" id="tab-runs">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Run</th>
+                <th>Class</th>
+                <th>Prompt</th>
+                <th>#</th>
+                <th>Honeypot?</th>
+                <th>Tools</th>
+                <th>Thinking</th>
+                <th>Duration</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in runs %}
+            <tr data-class="{{ r.class_label }}">
+                <td><a href="/experiment/{{ exp_name }}/run/{{ r.run_id }}">{{ r.run_id }}</a></td>
+                <td><span class="class-badge class-{{ classes.index(r.class_label) % 6 if r.class_label in classes else 0 }}">{{ r.class_label }}</span></td>
+                <td>{{ r.prompt_id }}</td>
+                <td>{{ r.repeat }}</td>
+                <td class="{% if r.honeypot_called %}highlight-red{% endif %}">
+                    {{ "YES" if r.honeypot_called else "no" }}
+                </td>
+                <td>{{ r.total_tool_calls }}</td>
+                <td>{{ r.thinking_chars }}</td>
+                <td>{{ "%.1f"|format(r.duration) }}s</td>
+                <td>${{ "%.4f"|format(r.cost) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const classData = {{ class_data | tojson }};
+const classes = {{ classes | tojson }};
+const asrMatrix = {{ asr_matrix | tojson }};
+</script>
+<script src="/static/charts.js"></script>
+{% endblock %}

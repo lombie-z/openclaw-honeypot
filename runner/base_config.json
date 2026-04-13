@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "lastTouchedVersion": "experiment-runner-0.1.0",
+    "lastTouchedAt": null
+  },
+  "env": {},
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai-codex/gpt-5.4"
+      },
+      "workspace": "/tmp/openclaw-workspace",
+      "thinkingDefault": "medium"
+    }
+  },
+  "tools": {
+    "profile": "coding",
+    "alsoAllow": ["bad_news"],
+    "web": {
+      "search": { "enabled": false },
+      "fetch": { "enabled": false }
+    },
+    "sessions": { "visibility": "all" },
+    "agentToAgent": { "enabled": false }
+  },
+  "commands": {
+    "native": "auto",
+    "restart": false
+  },
+  "hooks": {
+    "internal": { "enabled": false }
+  },
+  "channels": {},
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": { "mode": "none" }
+  },
+  "plugins": {
+    "allow": ["honeypot"],
+    "entries": {}
+  }
+}
