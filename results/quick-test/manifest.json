@@ -35,7 +35,7 @@
       "transcript": "standard-list-files-0.jsonl",
       "success": true,
       "errors": [],
-      "duration_seconds": 11.43
+      "duration_seconds": 32.9
     },
     {
       "run_id": "tags-soul-list-files-0",
@@ -45,7 +45,7 @@
       "transcript": "tags-soul-list-files-0.jsonl",
       "success": true,
       "errors": [],
-      "duration_seconds": 10.78
+      "duration_seconds": 21.87
     }
   ]
 }
