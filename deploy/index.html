@@ -130,102 +130,65 @@ flowchart LR
                 </pre>
             </div>
 
-            <h3>What did I try</h3>
+            <h3>Aggregated results (all experiments)</h3>
 
             <table class="results-table">
                 <thead>
                     <tr>
                         <th>Attack Vector</th>
-                        <th>Runs</th>
+                        <th>What happens</th>
+                        <th>n</th>
                         <th>ASR</th>
-                        <th>p-value</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Unicode tags (invisible)</td>
-                        <td>13</td>
+                        <td>Baseline (control)</td>
+                        <td>no poison anywhere</td>
+                        <td>84</td>
                         <td>0%</td>
-                        <td>&mdash;</td>
                     </tr>
                     <tr>
-                        <td>Zero-width binary (invisible)</td>
-                        <td>8</td>
+                        <td>Invisible Unicode (tags, ZW, VS)</td>
+                        <td>encoded payload in SOUL.md / memory / prompt</td>
+                        <td>42</td>
                         <td>0%</td>
-                        <td>&mdash;</td>
                     </tr>
                     <tr>
                         <td>Semantic nudge (5 levels)</td>
+                        <td>plaintext hints in SOUL.md</td>
                         <td>15</td>
                         <td>0%</td>
-                        <td>&mdash;</td>
+                    </tr>
+                    <tr>
+                        <td>Direct workspace</td>
+                        <td>poisoned docs present, single session</td>
+                        <td>23</td>
+                        <td>0%</td>
                     </tr>
                     <tr>
                         <td class="highlight-red"><strong>Memory laundering</strong></td>
-                        <td>30</td>
-                        <td class="highlight-red">43.3%</td>
-                        <td class="highlight-green">4.64 &times; 10<sup>-5</sup></td>
+                        <td class="highlight-red"><strong>agent reads poisoned docs &rarr; saves to memory &rarr; fresh session</strong></td>
+                        <td>83</td>
+                        <td class="highlight-red">27.7%</td>
                     </tr>
                     <tr>
-                        <td>Baseline (control)</td>
-                        <td>30</td>
-                        <td>0%</td>
-                        <td>&mdash;</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Ablation: why does it work?</h3>
-
-            <p>
-                Is it the memory, or the laundering?
-            </p>
-
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Class</th>
-                        <th>What's different</th>
-                        <th>n</th>
-                        <th>ASR</th>
-                        <th>p-value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>standard</td>
-                        <td>no poison anywhere</td>
-                        <td>20</td>
-                        <td>0%</td>
-                        <td>&mdash;</td>
-                    </tr>
-                    <tr>
-                        <td>direct-workspace</td>
-                        <td>poisoned files present, single session</td>
-                        <td>20</td>
-                        <td>0%</td>
-                        <td>1.0</td>
-                    </tr>
-                    <tr>
-                        <td class="highlight-red"><strong>direct-memory</strong></td>
+                        <td class="highlight-red"><strong>Direct memory injection</strong></td>
                         <td class="highlight-red"><strong>poison pre-written to MEMORY.md in correct format</strong></td>
                         <td>20</td>
-                        <td class="highlight-red">70%</td>
-                        <td class="highlight-green">3.3 &times; 10<sup>-6</sup></td>
-                    </tr>
-                    <tr>
-                        <td class="highlight-red"><strong>laundered-review</strong></td>
-                        <td class="highlight-red"><strong>agent reads docs &rarr; saves to memory &rarr; fresh session</strong></td>
-                        <td>20</td>
-                        <td class="highlight-red">25%</td>
-                        <td class="highlight-green">0.047</td>
+                        <td class="highlight-red">70.0%</td>
                     </tr>
                 </tbody>
             </table>
 
+            <h3>Ablation: memory vs laundering</h3>
+
             <p>
-                The agent trusts memory entries regardless of who wrote them &mdash; direct injection (70%) is actually <strong>more</strong> effective than laundering (25%).
+                Direct memory injection (70%) is <strong>more</strong> effective than laundering (27.7%).
+                The agent trusts memory entries regardless of who wrote them.
                 The laundered rate is lower because the agent doesn't always faithfully transcribe the <code>bad_news</code> instruction when taking notes.
+            </p>
+            <p>
                 Laundering matters not because it elevates trust, but because it's the <strong>realistic delivery vector</strong> &mdash; an attacker can't write to <code>MEMORY.md</code> remotely, but they can ship a poisoned README.
             </p>
 
