@@ -198,6 +198,7 @@ class OpenClawInstance:
         if target_file.startswith("skills/"):
             return self.state_dir / target_file
         elif target_file.startswith("memory/"):
-            return self.state_dir / target_file
+            # OpenClaw stores workspace memory under workspace_dir/memory/
+            return self.workspace_dir / target_file
         else:
             return self.workspace_dir / target_file

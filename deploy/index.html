@@ -178,7 +178,7 @@ flowchart LR
             <h3>Ablation: why does it work?</h3>
 
             <p>
-                Is it enough to have the instruction in memory, or does the agent need to have written it there itself?
+                Is it the memory, or the laundering?
             </p>
 
             <table class="results-table">
@@ -207,25 +207,26 @@ flowchart LR
                         <td>1.0</td>
                     </tr>
                     <tr>
-                        <td>direct-memory</td>
-                        <td>poison written to MEMORY.md by runner</td>
+                        <td class="highlight-red"><strong>direct-memory</strong></td>
+                        <td class="highlight-red"><strong>poison pre-written to MEMORY.md in correct format</strong></td>
                         <td>20</td>
-                        <td>0%</td>
-                        <td>1.0</td>
+                        <td class="highlight-red">70%</td>
+                        <td class="highlight-green">3.3 &times; 10<sup>-6</sup></td>
                     </tr>
                     <tr>
                         <td class="highlight-red"><strong>laundered-review</strong></td>
                         <td class="highlight-red"><strong>agent reads docs &rarr; saves to memory &rarr; fresh session</strong></td>
                         <td>20</td>
-                        <td class="highlight-red">40%</td>
-                        <td class="highlight-green">0.003</td>
+                        <td class="highlight-red">25%</td>
+                        <td class="highlight-green">0.047</td>
                     </tr>
                 </tbody>
             </table>
 
             <p>
-                Having the poison in memory isn't enough &mdash; the agent ignores externally-written memory entries.
-                Only when it <strong>authors the note itself</strong> does it follow the instruction in a later session.
+                The agent trusts memory entries regardless of who wrote them &mdash; direct injection (70%) is actually <strong>more</strong> effective than laundering (25%).
+                The laundered rate is lower because the agent doesn't always faithfully transcribe the <code>bad_news</code> instruction when taking notes.
+                Laundering matters not because it elevates trust, but because it's the <strong>realistic delivery vector</strong> &mdash; an attacker can't write to <code>MEMORY.md</code> remotely, but they can ship a poisoned README.
             </p>
 
             <h3>The agent, in its own words</h3>
