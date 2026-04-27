@@ -123,6 +123,9 @@ class ExperimentExecutor:
                 success = False
                 errors.append("No transcript file found after execution")
 
+            # 7. Save intermediate memory files before teardown
+            self._save_memory_snapshot(instance, run_id)
+
             duration = time.monotonic() - t0
             return RunResult(
                 run_id=run_id,
@@ -226,6 +229,32 @@ class ExperimentExecutor:
             errors.append("Timeout after 300s")
 
         return errors
+
+    def _save_memory_snapshot(self, instance: OpenClawInstance, run_id: str):
+        """Copy memory files from the workspace before teardown.
+
+        Separates injection rate from exploitation rate: we can see
+        exactly what the agent wrote to memory during setup.
+        """
+        if instance.workspace_dir is None:
+            return
+
+        memory_dir = instance.workspace_dir / "memory"
+        memory_index = instance.workspace_dir / "MEMORY.md"
+        has_files = memory_dir.exists() and any(memory_dir.iterdir())
+        has_index = memory_index.exists()
+
+        if not has_files and not has_index:
+            return
+
+        snapshot_dir = self.output_dir / f"{run_id}-memory"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+        if has_index:
+            shutil.copy2(memory_index, snapshot_dir / "MEMORY.md")
+        if has_files:
+            for f in memory_dir.glob("*.md"):
+                shutil.copy2(f, snapshot_dir / f.name)
 
     def _write_manifest(self, results: list[RunResult]):
         """Write a manifest.json summarising the experiment run."""
