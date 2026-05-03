@@ -37,6 +37,12 @@ class OpenClawInstance:
         self.manifest = manifest
         self.state_dir: Path | None = None
         self.workspace_dir: Path | None = None
+        if manifest.workspace_seed:
+            self._seed_dir = Path(manifest.workspace_seed)
+            if not self._seed_dir.is_absolute():
+                self._seed_dir = _RUNNER_DIR / manifest.workspace_seed
+        else:
+            self._seed_dir = _WORKSPACE_SEED_DIR
 
     def provision(self) -> Path:
         """Create a fresh ephemeral state directory with all required files.
@@ -182,10 +188,15 @@ class OpenClawInstance:
             shutil.copy2(src, self.workspace_dir / src.name)
 
     def _copy_workspace_seed(self):
-        """Copy seed files into the workspace for prompts to operate on."""
-        for src in _WORKSPACE_SEED_DIR.iterdir():
+        """Copy seed files (and directories) into the workspace."""
+        if not self._seed_dir.exists():
+            raise FileNotFoundError(f"Workspace seed not found: {self._seed_dir}")
+        for src in self._seed_dir.iterdir():
+            dest = self.workspace_dir / src.name
             if src.is_file():
-                shutil.copy2(src, self.workspace_dir / src.name)
+                shutil.copy2(src, dest)
+            elif src.is_dir():
+                shutil.copytree(src, dest)
 
     def _resolve_mutation_target(self, target_file: str) -> Path:
         """Resolve a mutation target path relative to the workspace.

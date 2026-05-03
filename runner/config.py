@@ -37,6 +37,7 @@ class ExperimentManifest:
     honeypot_tool: str
     prompts: list[Prompt]
     runs: list[RunSpec]
+    workspace_seed: str | None = None
 
 
 def load_manifest(path: Path) -> ExperimentManifest:
@@ -95,4 +96,5 @@ def load_manifest(path: Path) -> ExperimentManifest:
         honeypot_tool=raw.get("honeypot_tool", "bad_news"),
         prompts=prompts,
         runs=runs,
+        workspace_seed=raw.get("workspace_seed"),
     )
