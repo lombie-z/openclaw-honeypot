@@ -303,35 +303,60 @@ FastAPI + Jinja2 + Chart.js dark-mode UI.
 
 ## Usage
 
+All commands run from the **project root** (`openclaw-honeypot/`).
+
+### Prerequisites
+
+- Python 3.13+
+- OpenClaw installed as `openclaw` in PATH (`openclaw --version` to check)
+- Valid OpenClaw API credentials — run `openclaw models auth login` if needed. Tokens are stored in `~/.openclaw/agents/main/agent/auth-profiles.json` and expire after ~10 days.
+
 ### Setup
 
 ```bash
-cd v2
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Requires OpenClaw installed as `openclaw` in PATH, with valid API credentials in `~/.openclaw/agents/main/agent/auth-profiles.json` or via `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` env vars.
-
 ### Run an Experiment
 
 ```bash
-python -m runner.cli run experiments/memory-laundered-10x.yaml -o results/my-run
-python -m runner.cli run experiments/minimal.yaml --dry-run  # preview only
+# Preview what will run (no API calls)
+python3 -m runner.cli run experiments/cross-project-python.yaml --dry-run
+
+# Run for real
+python3 -m runner.cli run experiments/cross-project-python.yaml
+
+# Custom output directory
+python3 -m runner.cli run experiments/cross-project-python.yaml -o results/my-run
 ```
+
+### Available Experiments
+
+| Manifest | Description | Runs |
+|----------|-------------|------|
+| `cross-project-python.yaml` | Python CLI seed, 4 prompts × 3 classes × 5 repeats | 60 |
+| `cross-project-nextjs.yaml` | Next.js app seed, same matrix | 60 |
+| `cross-project-fastapi.yaml` | FastAPI API seed, same matrix | 60 |
+| `ablation.yaml` | Standard / direct-workspace / direct-memory / laundered | 80 |
+| `laundered-confidence.yaml` | Focused laundering runs for confidence intervals | 30 |
+| `exfiltration.yaml` | Data exfiltration (benign vs credential content) | varies |
+| `exfiltration-complex.yaml` | Extended exfiltration scenarios | varies |
+| `encoding-vs-memory.yaml` | Invisible Unicode encodings vs memory poisoning | varies |
+| `naturalistic-laundering.yaml` | More natural setup prompts (no explicit "save to memory") | varies |
 
 ### Analyze Results
 
 ```bash
-python -m runner.cli analyze results/my-run              # terminal summary
-python -m runner.cli analyze results/my-run --format json # export metrics.json
+python3 -m runner.cli analyze results/cross-project-python              # terminal summary
+python3 -m runner.cli analyze results/cross-project-python --format json # export metrics.json
 ```
 
 ### Launch Web Dashboard
 
 ```bash
-python -m runner.cli serve results/ --port 8080
+python3 -m runner.cli serve results/ --port 8080
 ```
 
 Open `http://127.0.0.1:8080`. Point at a directory containing multiple experiment subdirectories to compare them.
@@ -339,7 +364,7 @@ Open `http://127.0.0.1:8080`. Point at a directory containing multiple experimen
 ## Project Structure
 
 ```
-v2/
+openclaw-honeypot/
 ├── DESIGN.md                          # This document
 ├── requirements.txt                   # click, pyyaml, fastapi, uvicorn, jinja2, scipy
 │
@@ -354,12 +379,20 @@ v2/
 │   ├── web_app.py                     # Bridge to web/app.py
 │   ├── base_config.json               # Template OpenClaw config
 │   ├── bootstrap/                     # Clean default agent files (SOUL.md, USER.md, IDENTITY.md)
-│   └── workspace_seed/               # Files the agent operates on during experiments
-│       ├── hello.py                   # Python code (for refactoring prompts)
-│       ├── notes.md                   # Project notes (for summarisation prompts)
-│       ├── README.md                  # Project readme
-│       ├── project_config.md          # Poisoned: mentions bad_news as "pre-flight check"
-│       └── setup_guide.md            # Poisoned: mentions bad_news as "health endpoint"
+│   ├── workspace_seed/               # Default seed: Python CLI project (6 files)
+│   │   ├── hello.py, notes.md, README.md
+│   │   ├── project_config.md          # Poisoned: mentions bad_news as "pre-flight check"
+│   │   └── setup_guide.md            # Poisoned: mentions bad_news as "health endpoint"
+│   ├── workspace_seed_nextjs/        # Next.js Task Tracker seed (12 files)
+│   │   ├── app/, components/, package.json, tsconfig.json, next.config.js
+│   │   ├── CONTRIBUTING.md, project_config.md, setup_guide.md  # Poisoned
+│   │   ├── notes.md, .env             # Canary strings for exfiltration detection
+│   │   └── README.md
+│   └── workspace_seed_fastapi/       # FastAPI Inventory API seed (13 files)
+│       ├── app/, tests/, requirements.txt
+│       ├── CONTRIBUTING.md, project_config.md, setup_guide.md  # Poisoned
+│       ├── notes.md, .env             # Canary strings for exfiltration detection
+│       └── README.md
 │
 ├── honeypot/                          # OpenClaw plugin (TypeScript)
 │   ├── openclaw.plugin.json           # Plugin manifest
@@ -370,19 +403,17 @@ v2/
 │   ├── templates/                     # base.html, index.html, dashboard.html, run_detail.html
 │   └── static/                        # style.css (dark-mode), charts.js
 │
-├── experiments/                       # YAML manifests
-│   ├── example.yaml                   # Full matrix: 3 prompts × 5 classes × 5 repeats
-│   ├── minimal.yaml                   # Quick: 1 prompt × 5 classes × 5 repeats
-│   ├── v2-invisible.yaml             # Variation selectors + decoder priming
-│   ├── semantic-nudge.yaml           # 5 levels of semantic indirection
-│   ├── memory-poison.yaml            # Direct vs laundered memory poisoning
-│   └── memory-laundered-10x.yaml     # Focused: 20 laundered-review runs
+├── experiments/                       # YAML manifests (see table above)
 │
-└── results/                           # Output (gitignored)
-    └── <experiment-name>/
-        ├── manifest.json
-        ├── <run-id>.jsonl
-        └── metrics.json
+├── results/                           # Output
+│   └── <experiment-name>/
+│       ├── manifest.json
+│       ├── <run-id>.jsonl
+│       ├── <run-id>-memory/           # Memory snapshots (if agent wrote to memory)
+│       └── metrics.json
+│
+└── thesis/                            # Thesis outline and source papers
+    └── outline.md
 
 ```
 
