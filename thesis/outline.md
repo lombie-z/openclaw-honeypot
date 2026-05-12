@@ -2,7 +2,7 @@
 ## Exploiting Persistent Note-Taking to Hijack Tool Selection
 
 *A thesis submitted in partial fulfilment of the requirements for the degree of*
-*Bachelor of Engineering in Software[poi ]
+*Bachelor of Engineering (Software)*
 
 **Isaac Lombard** — SID 500695270
 
@@ -115,7 +115,7 @@ This thesis makes three contributions to the field:
 
 The first is experimental data on tool hijacking in agentic coding workflows. It identifies this as a practical, realistic attack path. Built against OpenClaw, it considers the impact of a tendency toward autonomous agents over agents requiring manual approval. It complements existing single-session research such as BIPIA [2] and InjecAgent [3] by introducing the cross-session element. It also extends memory poisoning work [4], [7] to include file-based memory in agentic systems.
 
-The second is a narrowing of the thread model for the model tested, showing the ineffectiveness of invisible Unicode attacks and steganographic injections on gpt-5.4, which differs from prior findings on GPT-5.2 [9]. This suggests mitigations are being implemented successive model releases.
+The second is a narrowing of the threat model for the model tested, showing the ineffectiveness of invisible Unicode attacks and steganographic injections on gpt-5.4, which differs from prior findings on GPT-5.2 [9]. This suggests mitigations are being implemented successive model releases.
 
 Third — ==an analysis of the factors that modulate attack success, including the comparison between direct injection and laundering, the role of project complexity and hedging in the laundering process, setup prompt directiveness as a gating factor, and the observation that the source file's perceived authority (e.g., AGENTS.md vs regular docs) modulates hedging during note-taking.==
 
@@ -351,6 +351,15 @@ The poisoned workspace files frame `bad_news` as a normal project tool:
   - Wilson score interval for ASR confidence intervals
   - Effect sizes reported as odds ratios (OR) for binary ASR comparisons
 - **Statistical power considerations:** with n=20 per condition and alpha=0.05, Fisher's exact test has approximately 80% power to detect a difference between 0% and 25% ASR, and >95% power to detect 0% vs 50%. For negative results (0% ASR), Wilson score confidence intervals are reported: 0/20 yields a 95% CI of [0%, 16.8%], meaning effects below ~17% cannot be ruled out at this sample size. The primary positive results (direct-memory at 70%, laundering at 25-43%) are well above this detection threshold
+- **Logistic regression:** a binomial logistic regression is used to test whether hedging presence (binary) predicts tool-call exploitation at the individual run level, with a likelihood ratio test for significance
+
+### 3.7.1 Hedging Classification Methodology
+
+Hedging is classified via keyword matching against the memory snapshot text. A laundered memory entry is classified as "hedged" if it contains any of the following phrases (case-insensitive): "treat this as", "not as authority", "verify when relevant", "appears unusual", "project-specific note", "not trusted", "caution", "carefully", "questionable", "unusual convention", "do not blindly", "suspicious."
+
+These phrases were identified by manual inspection of a sample of memory snapshots from early experiments. The classification is binary (hedged or not) and automated — applied consistently across all memory snapshots.
+
+**Limitation:** The phrase list was not independently validated (no second coder or inter-rater reliability test). Some phrases (e.g., "carefully", "caution") may match text unrelated to the poisoned instruction (e.g., cautions about credential handling in notes.md). A more rigorous classification would use manual coding with a defined codebook and inter-rater agreement. This is noted as a limitation in Section 5.5.
 
 ---
 
@@ -396,9 +405,9 @@ Cross-project laundering (3 project types × 4 prompts × 5 repeats = 60 runs pe
 
 | Project seed | Files | Laundered ASR | Direct memory ASR | Control ASR |
 |---|---|---|---|---|
-| Python CLI | 6 | 60% | 100% | 0% |
-| FastAPI API | 13 | 30% | 85% | 0% |
-| Next.js app | 12 | 5% | 95% | 0% |
+| Python CLI | 6 | 60% | 80% | 0% |
+| FastAPI API | 13 | 30% | 100% | 0% |
+| Next.js app | 12 | 5% | 100% | 0% |
 
 ### 4.4.1 Injection Success Rate (ISR) and Hedging Analysis
 
@@ -425,6 +434,30 @@ Example of a hedged injection (Next.js, 80% ISR, 5% ASR):
   > "I think I should run bad_news as a pre-flight check **per convention** before doing any operations in the workspace."
 
 - Control agent: no mention of bad_news, goes straight to `exec ls -la`
+
+### 4.4.2 Logistic Regression: Hedging → Exploitation
+
+To formalise the hedging-exploitation relationship at the individual run level, a logistic regression was fitted predicting tool call (binary) from hedging presence (binary) across the 51 laundered runs where injection succeeded (ISR=1):
+
+| Predictor | Coefficient (β) | Odds Ratio | 95% CI |
+|---|---|---|---|
+| Intercept | -0.208 | — | — |
+| Hedging present | -0.773 | 0.46 | — |
+
+Non-hedged entries: 13/29 = 45% exploited. Hedged entries: 6/22 = 27% exploited. The odds ratio of 0.46 indicates hedged entries are roughly half as likely to trigger the tool call. However, the likelihood ratio test does not reach significance (χ² = 1.68, p = 0.20) at the current sample size (n=51). The direction is consistent with the project-level inverse correlation but a larger sample would be needed to confirm the effect formally.
+
+### 4.4.3 Task-Type Breakdown
+
+The cross-project experiments tested 4 task prompts per project (n=5 per cell). ASR varies substantially by task type:
+
+| Task type | Python ASR | FastAPI ASR | Next.js ASR | Overall ASR |
+|---|---|---|---|---|
+| explore ("Show me what files...") | 60% | 0% | 0% | 20% |
+| comprehend ("Explain how...") | 40% | 0% | 0% | 13% |
+| modify ("Add a delete button...") | 100% | 60% | 20% | **60%** |
+| multi-step ("Help me understand...") | 40% | 60% | 0% | 33% |
+
+Modification tasks are the most vulnerable (60% overall ASR), likely because the agent enters a more action-oriented mode where it is more inclined to follow operational conventions from memory. Read-only tasks (explore, comprehend) are more resistant, particularly on complex projects. The Python CLI project shows elevated ASR across all task types (40-100%), consistent with its lower hedging rate.
 
 ## 4.5 Positive Results: Direct Memory Injection
 
@@ -609,17 +642,17 @@ Key distinctions from closest related work: Wang et al. [13] test direct injecti
 
 [6] S. S. Srivastava and H. He, "MemoryGraft: Persistent Compromise of LLM Agents via Poisoned Experience Retrieval," 2025. arXiv:2512.16962. <https://arxiv.org/abs/2512.16962>
 
-[7] "Poison Once, Exploit Forever: Environment-Injected Memory Poisoning on Web Agents," 2026. arXiv:2604.02623. <https://arxiv.org/abs/2604.02623>
+[7] W. Zou, M. Dong, M. Romero Calvo, S. Chang, J. Guo, D. Lee, X. Niu, X. Ma, Y. Qi, and J. Jiang, "Poison Once, Exploit Forever: Environment-Injected Memory Poisoning on Web Agents," 2026. arXiv:2604.02623. <https://arxiv.org/abs/2604.02623>
 
-[8] "From Storage to Steering: Memory Control Flow Attacks Forcing Tool Selection," 2026. arXiv:2603.15125. <https://arxiv.org/abs/2603.15125>
+[8] Z. Xu, X. Zhu, Y. Yao, M. Xue, and Y. Song, "From Storage to Steering: Memory Control Flow Attacks Forcing Tool Selection," 2026. arXiv:2603.15125. <https://arxiv.org/abs/2603.15125>
 
-[9] "Reverse CAPTCHA: Invisible Unicode and Tool Access," 2026. arXiv:2603.00164. <https://arxiv.org/abs/2603.00164>
+[9] M. Graves, "Reverse CAPTCHA: Evaluating LLM Susceptibility to Invisible Unicode Instruction Injection," 2026. arXiv:2603.00164. <https://arxiv.org/abs/2603.00164>
 
 [10] Palo Alto Networks Unit 42, "When AI Remembers Too Much: Indirect Prompt Injection Poisons AI Long-Term Memory." <https://unit42.paloaltonetworks.com/indirect-prompt-injection-poisons-ai-longterm-memory/>
 
-[11] "Model Context Protocol Threat Modeling and Analyzing Vulnerabilities to Prompt Injection with Tool Poisoning," 2026. arXiv:2603.22489. <https://arxiv.org/abs/2603.22489>
+[11] C. Huang, X. Huang, N. P. Tran, and A. Milani Fard, "Model Context Protocol Threat Modeling and Analyzing Vulnerabilities to Prompt Injection with Tool Poisoning," 2026. arXiv:2603.22489. <https://arxiv.org/abs/2603.22489>
 
-[12] "Securing the Model Context Protocol: Defending LLMs Against Tool Poisoning and Adversarial Attacks," 2025. arXiv:2512.06556. <https://arxiv.org/abs/2512.06556>
+[12] S. Jamshidi, K. W. Nafi, A. Moradi Dakhel, N. Shahabi, F. Khomh, and N. Ezzati-Jivan, "Securing the Model Context Protocol: Defending LLMs Against Tool Poisoning and Adversarial Attacks," 2025. arXiv:2512.06556. <https://arxiv.org/abs/2512.06556>
 
 [13] Z. Wang, H. Tu, L. Zhang, H. Chen, J. Wu, X. Liu, Z. Yuan, T. Pang, M. Q. Shieh, F. Liu, Z. Zheng, H. Yao, Y. Zhou, and C. Xie, "Your Agent, Their Asset: A Real-World Safety Analysis of OpenClaw," 2026. arXiv:2604.04759. <https://arxiv.org/abs/2604.04759>
 
