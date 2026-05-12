@@ -96,6 +96,12 @@ class ExperimentExecutor:
                     errors = setup_errors
                     # Continue anyway — the main prompt is the real test
 
+            # 3.5. Remove files between setup and main (if specified)
+            for filename in run_spec.remove_after_setup:
+                target = instance.workspace_dir / filename
+                if target.exists():
+                    target.unlink()
+
             # 4. Prepare prompt text (apply __prompt__ mutations if any)
             prompt_text = self._prepare_prompt(prompt.text, run_spec)
 

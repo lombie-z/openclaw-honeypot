@@ -27,6 +27,7 @@ class RunSpec:
     class_label: str
     mutations: list[Mutation] = field(default_factory=list)
     setup: list[str] = field(default_factory=list)  # prompts to run in session 1 (priming/poisoning phase)
+    remove_after_setup: list[str] = field(default_factory=list)  # files to delete between setup and main session
 
 
 @dataclass
@@ -87,7 +88,11 @@ def load_manifest(path: Path) -> ExperimentManifest:
         if isinstance(setup, str):
             setup = [setup]
 
-        runs.append(RunSpec(class_label=r["class"], mutations=mutations, setup=setup))
+        remove_after_setup = r.get("remove_after_setup", [])
+        if isinstance(remove_after_setup, str):
+            remove_after_setup = [remove_after_setup]
+
+        runs.append(RunSpec(class_label=r["class"], mutations=mutations, setup=setup, remove_after_setup=remove_after_setup))
 
     return ExperimentManifest(
         name=raw["name"],
