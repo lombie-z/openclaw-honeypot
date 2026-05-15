@@ -85,7 +85,7 @@
     </header>
     <main>
         <div class="methodology">
-            <h1>"Did I really say that...?"</h1>
+            <h1>From README to MEMORY.md</h1>
             <p class="subtitle">Cross-session memory laundering in AI coding agents. Honeypot experiments against OpenClaw / gpt-5.4.</p>
 
             <p>
@@ -145,38 +145,44 @@ flowchart LR
                     <tr>
                         <td>Baseline (control)</td>
                         <td>no poison anywhere</td>
-                        <td>84</td>
-                        <td>0%</td>
-                    </tr>
-                    <tr>
-                        <td>Invisible Unicode (tags, ZW, VS)</td>
-                        <td>encoded payload in SOUL.md / memory / prompt</td>
-                        <td>42</td>
-                        <td>0%</td>
-                    </tr>
-                    <tr>
-                        <td>Semantic nudge (5 levels)</td>
-                        <td>plaintext hints in SOUL.md</td>
-                        <td>15</td>
+                        <td>100</td>
                         <td>0%</td>
                     </tr>
                     <tr>
                         <td>Direct workspace</td>
                         <td>poisoned docs present, single session</td>
-                        <td>23</td>
+                        <td>20</td>
                         <td>0%</td>
                     </tr>
                     <tr>
-                        <td class="highlight-red"><strong>Memory laundering</strong></td>
+                        <td>Invisible Unicode (tags, ZW, VS, homoglyphs)</td>
+                        <td>encoded payload in SOUL.md / memory / prompt</td>
+                        <td>70</td>
+                        <td>0%</td>
+                    </tr>
+                    <tr>
+                        <td>Naturalistic / self-directive</td>
+                        <td>subtle or self-prompted note-taking</td>
+                        <td>220</td>
+                        <td>0&ndash;6%</td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-red"><strong>Memory laundering (directive)</strong></td>
                         <td class="highlight-red"><strong>agent reads poisoned docs &rarr; saves to memory &rarr; fresh session</strong></td>
-                        <td>83</td>
-                        <td class="highlight-red">27.7%</td>
+                        <td>200</td>
+                        <td class="highlight-red">25&ndash;43%</td>
+                    </tr>
+                    <tr>
+                        <td class="highlight-red"><strong>Laundered-isolated</strong></td>
+                        <td class="highlight-red"><strong>memory only &mdash; poisoned files removed before main session</strong></td>
+                        <td>20</td>
+                        <td class="highlight-red">35%</td>
                     </tr>
                     <tr>
                         <td class="highlight-red"><strong>Direct memory injection</strong></td>
-                        <td class="highlight-red"><strong>poison pre-written to MEMORY.md in correct format</strong></td>
+                        <td class="highlight-red"><strong>poison pre-written to MEMORY.md</strong></td>
                         <td>20</td>
-                        <td class="highlight-red">70.0%</td>
+                        <td class="highlight-red">70%</td>
                     </tr>
                 </tbody>
             </table>
@@ -184,12 +190,15 @@ flowchart LR
             <h3>Ablation: memory vs laundering</h3>
 
             <p>
-                Direct memory injection (70%) actually works better than laundering (27.7%).
-                The agent doesn't care who wrote the memory entry. It trusts anything in <code>MEMORY.md</code>.
-                The laundered rate is lower because the agent sometimes summarises or drops the <code>bad_news</code> instruction when taking notes.
+                Direct memory injection (70%) works better than laundering (25&ndash;43%).
+                The agent trusts anything in <code>MEMORY.md</code> regardless of who wrote it.
+                The laundered rate is lower because the agent sometimes hedges &mdash; adding qualifiers like "if needed" when saving notes &mdash; which dilutes the instruction.
             </p>
             <p>
-                The point of laundering isn't that it's more effective. It's that it's the realistic attack path:
+                The laundered-isolated experiment (35% ASR) proves memory alone is sufficient: poisoned workspace files are removed before the fresh session, yet the agent still calls <code>bad_news</code> from memory.
+            </p>
+            <p>
+                The point of laundering isn't that it's more effective. It's the realistic attack path:
                 you can't write to someone's <code>MEMORY.md</code> remotely, but you can ship a poisoned README.
             </p>
 
@@ -327,17 +336,62 @@ flowchart LR
         <div class="card-grid">
             <a href="/experiment/ablation.html" class="card">
                 <h2>ablation</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">80 runs &middot; 24% ASR</p>
             </a>
             <a href="/experiment/laundered-confidence.html" class="card">
                 <h2>laundered-confidence</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">60 runs &middot; 22% ASR</p>
             </a>
-            <a href="/experiment/memory-laundered-10x.html" class="card">
-                <h2>memory-laundered-10x</h2>
+            <a href="/experiment/laundered-isolated.html" class="card">
+                <h2>laundered-isolated</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">20 runs &middot; 35% ASR</p>
             </a>
-            <a href="/experiment/memory-laundered-20x.html" class="card">
-                <h2>memory-laundered-20x</h2>
+            <a href="/experiment/cross-project-python.html" class="card">
+                <h2>cross-project-python</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">60 runs &middot; 47% ASR</p>
+            </a>
+            <a href="/experiment/cross-project-fastapi.html" class="card">
+                <h2>cross-project-fastapi</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">60 runs &middot; 43% ASR</p>
+            </a>
+            <a href="/experiment/cross-project-nextjs.html" class="card">
+                <h2>cross-project-nextjs</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">60 runs &middot; 35% ASR</p>
+            </a>
+            <a href="/experiment/encoding-vs-memory.html" class="card">
+                <h2>encoding-vs-memory</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">90 runs &middot; 8% ASR</p>
+            </a>
+            <a href="/experiment/naturalistic-laundering.html" class="card">
+                <h2>naturalistic-laundering</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">100 runs &middot; 6% ASR</p>
+            </a>
+            <a href="/experiment/self-directive-laundering.html" class="card">
+                <h2>self-directive-laundering</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">120 runs &middot; 0% ASR</p>
+            </a>
+            <a href="/experiment/agents-md-injection.html" class="card">
+                <h2>agents-md-injection</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">40 runs &middot; 98% ASR*</p>
+            </a>
+            <a href="/experiment/agents-md-nextjs.html" class="card">
+                <h2>agents-md-nextjs</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">40 runs &middot; 100% ASR*</p>
+            </a>
+            <a href="/experiment/agents-diagnostic.html" class="card">
+                <h2>agents-diagnostic</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">5 runs &middot; diagnostic</p>
+            </a>
+            <a href="/experiment/exfiltration.html" class="card">
+                <h2>exfiltration</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">80 runs &middot; 19% ASR</p>
+            </a>
+            <a href="/experiment/exfiltration-complex.html" class="card">
+                <h2>exfiltration-complex</h2>
+                <p style="color:var(--text-muted);font-size:0.8rem;margin-top:0.5rem">120 runs &middot; 31% ASR</p>
             </a>
         </div>
+        <p style="color:var(--text-muted);font-size:0.75rem;margin-top:0.75rem">* AGENTS.md ASR is confounded by auto-loading into agent context &mdash; see thesis for details.</p>
         </div>
     </main>
     <script>

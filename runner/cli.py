@@ -124,5 +124,129 @@ def serve(results_dir: Path, port: int, host: str):
     uvicorn.run(app, host=host, port=port)
 
 
+@cli.command()
+@click.argument("results_dir", type=click.Path(exists=True, path_type=Path))
+@click.option("--output-dir", "-o", type=click.Path(path_type=Path), default=Path("deploy"))
+def export(results_dir: Path, output_dir: Path):
+    """Export all experiment dashboards to static HTML in deploy/."""
+    import shutil
+    from jinja2 import Environment, FileSystemLoader
+
+    from .parser import parse_transcript
+    from .metrics import compute_run_metrics, compute_experiment_metrics
+
+    web_dir = Path(__file__).parent.parent / "web"
+    env = Environment(loader=FileSystemLoader(str(web_dir / "templates")))
+
+    exp_dir = output_dir / "experiment"
+    exp_dir.mkdir(parents=True, exist_ok=True)
+
+    static_src = web_dir / "static"
+    static_dst = output_dir / "static"
+    if static_dst.exists():
+        shutil.rmtree(static_dst)
+    shutil.copytree(str(static_src), str(static_dst))
+    click.echo(f"Copied static assets to {static_dst}")
+
+    experiments = []
+    for p in sorted(results_dir.iterdir()):
+        if not p.is_dir() or p.name.startswith("_") or not (p / "manifest.json").exists():
+            continue
+
+        with open(p / "manifest.json") as f:
+            manifest_data = json.load(f)
+
+        honeypot = manifest_data.get("honeypot_tool", "bad_news")
+        run_metrics = []
+        for entry in manifest_data.get("results", []):
+            tf = p / entry["transcript"]
+            if not tf.exists():
+                continue
+            transcript = parse_transcript(tf)
+            metrics = compute_run_metrics(
+                transcript=transcript,
+                run_id=entry["run_id"],
+                class_label=entry["class_label"],
+                prompt_id=entry["prompt_id"],
+                repeat=entry["repeat"],
+                honeypot_name=honeypot,
+            )
+            run_metrics.append(metrics)
+
+        if not run_metrics:
+            click.echo(f"  Skipping {p.name} (no valid transcripts)")
+            continue
+
+        experiment = compute_experiment_metrics(run_metrics)
+        classes = list(experiment.classes.keys())
+        class_data = {}
+        for label in classes:
+            cls = experiment.classes[label]
+            class_data[label] = {
+                "n_runs": cls.n_runs,
+                "asr": cls.asr,
+                "asr_by_prompt": cls.asr_by_prompt,
+                "tool_distribution": cls.tool_distribution,
+                "mean_thinking_chars": cls.mean_thinking_chars,
+                "safety_mention_rate": cls.safety_mention_rate,
+                "mean_turn_count": cls.mean_turn_count,
+                "mean_total_tokens": cls.mean_total_tokens,
+                "mean_cost_usd": cls.mean_cost_usd,
+                "honeypot_total_calls": cls.honeypot_total_calls,
+            }
+
+        runs = []
+        for r in experiment.runs:
+            runs.append({
+                "run_id": r.run_id,
+                "class_label": r.class_label,
+                "prompt_id": r.prompt_id,
+                "repeat": r.repeat,
+                "honeypot_called": r.honeypot_called,
+                "total_tool_calls": r.total_tool_calls,
+                "thinking_chars": r.thinking_total_chars,
+                "duration": r.total_duration_seconds,
+                "cost": r.total_cost_usd,
+            })
+
+        stat_tests = []
+        for t in experiment.statistical_tests:
+            stat_tests.append({
+                "comparison": t.get("comparison", ""),
+                "metric": t.get("metric", ""),
+                "test": t.get("test", ""),
+                "p_value": t.get("p_value"),
+            })
+
+        template = env.get_template("dashboard.html")
+        html = template.render(
+            name=manifest_data.get("name", p.name),
+            model=manifest_data.get("model", "unknown"),
+            total_runs=len(experiment.runs),
+            classes=classes,
+            class_data=class_data,
+            asr_matrix=experiment.asr_matrix,
+            statistical_tests=stat_tests,
+            runs=runs,
+            exp_name=p.name,
+        )
+
+        out_file = exp_dir / f"{p.name}.html"
+        out_file.write_text(html)
+
+        total_asr = sum(1 for r in experiment.runs if r.honeypot_called) / len(experiment.runs) if experiment.runs else 0
+        experiments.append({
+            "name": p.name,
+            "display_name": manifest_data.get("name", p.name),
+            "n_runs": len(experiment.runs),
+            "asr": total_asr,
+            "model": manifest_data.get("model", "unknown"),
+        })
+        click.echo(f"  Exported {p.name} ({len(experiment.runs)} runs, ASR {total_asr:.0%})")
+
+    click.echo(f"\nExported {len(experiments)} experiments to {exp_dir}")
+    click.echo("Run 'npx serve deploy' or deploy to Vercel to view.")
+
+
 if __name__ == "__main__":
     cli()
