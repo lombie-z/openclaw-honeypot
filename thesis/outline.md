@@ -33,7 +33,7 @@ One of these new bits of technology is OpenClaw – a technology for interfacing
 
 - AI coding agents (Claude Code, Cursor, OpenClaw, etc.) now persist memory across sessions — project notes, conventions, observations saved to disk [5], [6]
 - This creates a new attack surface: get the agent to write something to memory, and it sticks around and influences later sessions [4], [5]
-- We built a honeypot-based testing framework against OpenClaw (gpt-5.4) to measure tool hijacking via different injection vectors across ~850 experimental runs
+- We built a honeypot-based testing framework against OpenClaw (gpt-5.4) to measure tool hijacking via different injection vectors across 735 experimental runs (935 including supplementary exfiltration experiments)
 - Tested: invisible Unicode encodings [9], direct workspace poisoning, direct memory injection [8], memory laundering via onboarding [5], [10], setup prompt directiveness, and source file authority
 - Only memory-based attacks worked: direct memory injection hit 70% ASR (ablation, n=20) and 93% across 3 project types (n=60); laundering through the agent's note-taking achieved 25–43% ASR across experiments (ablation n=20, confidence n=30, cross-project n=60); 0% ASR across all control conditions
 - A laundered-isolated experiment (poisoned source files removed before the fresh session) confirmed memory alone is sufficient at 35% ASR (n=20)
@@ -353,7 +353,7 @@ The poisoned workspace files frame `bad_news` as a normal project tool:
   - Mann-Whitney U for numeric metrics (non-parametric, no normality assumption)
   - Wilson score interval for ASR confidence intervals
   - Effect sizes reported as odds ratios (OR) for binary ASR comparisons
-- **Statistical power considerations:** with n=20 per condition and alpha=0.05, Fisher's exact test has approximately 80% power to detect a difference between 0% and 25% ASR, and >95% power to detect 0% vs 50%. For negative results (0% ASR), Wilson score confidence intervals are reported: 0/20 yields a 95% CI of [0%, 16.8%], meaning effects below ~17% cannot be ruled out at this sample size. The primary positive results (direct-memory at 70%, laundering at 25-43%) are well above this detection threshold
+- **Statistical power considerations:** with n=20 per condition and alpha=0.05, Fisher's exact test has approximately 80% power to detect a difference between 0% and 25% ASR, and >95% power to detect 0% vs 50%. For negative results (0% ASR), Wilson score confidence intervals are reported: 0/20 yields a 95% CI of [0%, 16.1%], meaning effects below ~17% cannot be ruled out at this sample size. The primary positive results (direct-memory at 70%, laundering at 25-43%) are well above this detection threshold
 - **Logistic regression:** a binomial logistic regression is used to test whether hedging presence (binary) predicts tool-call exploitation at the individual run level, with a likelihood ratio test for significance
 
 ### 3.7.1 Hedging Classification Methodology
@@ -395,7 +395,7 @@ These phrases were identified by manual inspection of a sample of memory snapsho
 - Poisoned docs are present and readable, but without memory priming the agent ignores the "convention"
 - This is the key control: same poisoned files, same model, but no memory phase — confirms memory is the mechanism, not file presence [7], [8]
 
-## 4.4 Positive Results: Memory Laundering
+## 4.3 Positive Results: Memory Laundering
 
 Memory laundering produced consistent positive ASR across two independent experiments with matched controls. Extends environment-injected memory poisoning [7] and long-term memory carry-over [10] into the file-based coding-agent setting.
 
@@ -412,7 +412,7 @@ Cross-project laundering (3 project types × 4 prompts × 5 repeats = 60 runs pe
 | FastAPI API | 13 | 30% | 100% | 0% |
 | Next.js app | 12 | 5% | 100% | 0% |
 
-### 4.4.1 Injection Success Rate (ISR) and Hedging Analysis
+### 4.3.1 Injection Success Rate (ISR) and Hedging Analysis
 
 Memory snapshot analysis (n=59 laundered runs across all 3 projects) decomposes the attack pipeline into injection and exploitation stages:
 
@@ -438,7 +438,7 @@ Example of a hedged injection (Next.js, 80% ISR, 5% ASR):
 
 - Control agent: no mention of bad_news, goes straight to `exec ls -la`
 
-### 4.4.2 Logistic Regression: Hedging → Exploitation
+### 4.3.2 Logistic Regression: Hedging → Exploitation
 
 To formalise the hedging-exploitation relationship at the individual run level, a logistic regression was fitted predicting tool call (binary) from hedging presence (binary) across the 51 laundered runs where injection succeeded (ISR=1):
 
@@ -449,7 +449,7 @@ To formalise the hedging-exploitation relationship at the individual run level, 
 
 Non-hedged entries: 13/29 = 45% exploited. Hedged entries: 6/22 = 27% exploited. The odds ratio of 0.46 indicates hedged entries are roughly half as likely to trigger the tool call. However, the likelihood ratio test does not reach significance (χ² = 1.68, p = 0.20) at the current sample size (n=51). The direction is consistent with the project-level inverse correlation but a larger sample would be needed to confirm the effect formally.
 
-### 4.4.3 Task-Type Breakdown
+### 4.3.3 Task-Type Breakdown
 
 The cross-project experiments tested 4 task prompts per project (n=5 per cell). ASR varies substantially by task type:
 
@@ -462,13 +462,13 @@ The cross-project experiments tested 4 task prompts per project (n=5 per cell). 
 
 Modification tasks are the most vulnerable (60% overall ASR), likely because the agent enters a more action-oriented mode where it is more inclined to follow operational conventions from memory. Read-only tasks (explore, comprehend) are more resistant, particularly on complex projects. The Python CLI project shows elevated ASR across all task types (40-100%), consistent with its lower hedging rate.
 
-## 4.5 Positive Results: Direct Memory Injection
+## 4.4 Positive Results: Direct Memory Injection
 
 - 70% ASR (14/20), p = 3.3 x 10^-6 vs control. Comparable in direction to the forced-memory setting of MINJA [4] and the memory-steering results of [8], though our numbers reflect file-based memory on a coding task rather than vector DB memory on QA agents
 - Higher than laundering — the agent follows instructions in MEMORY.md regardless of who wrote them. Consistent with [6]'s "semantic imitation heuristic" in that retrieved/loaded content is treated as authoritative
 - The laundered rate is lower because the agent sometimes summarises or drops the `bad_news` instruction when taking notes during the setup phase
 
-## 4.6 Ablation Summary
+## 4.5 Ablation Summary
 
 | Class | What's different | n | ASR | 95% CI | Cohen's h | p-value |
 |---|---|---|---|---|---|---|
@@ -482,7 +482,7 @@ The laundered-isolated condition is a critical mechanism validation: the poisone
 
 - ==[PLACEHOLDER: Figure 4.1 — Ablation summary bar chart. Five bars: standard (0%, n=20), direct-workspace (0%, n=20), direct-memory (70%, n=20), laundered-review (25%, n=20), laundered-isolated (35%, n=20). Include Wilson score 95% confidence interval error bars.]==
 
-## 4.7 Setup Prompt Directiveness
+## 4.6 Setup Prompt Directiveness
 
 The naturalistic-laundering experiment (n=100, 5 conditions × 20 repeats) tests whether the attack depends on explicitly asking the agent to save to memory.
 
@@ -512,13 +512,13 @@ The self-directive-laundering experiment (n=120, 6 conditions × 20 repeats) fur
 
 Regular workspace files cannot instruct the agent to save to memory, regardless of framing. The agent treats all file-level directives — including explicit "save to memory" instructions — as informational.
 
-## 4.8 Source File Authority and Hedging
+## 4.7 Source File Authority and Hedging
 
 An additional set of experiments examined how the poison source file's perceived authority affects the laundering process. AGENTS.md — an established convention for configuring AI agent behaviour in a project [26], [27] — was tested as an alternative poison source.
 
 **Important caveat:** A diagnostic test (n=5, AGENTS.md present with no setup session and no memory) confirmed that OpenClaw auto-loads AGENTS.md into the agent's system context at session start, achieving 5/5 tool calls without any memory involvement. This means ASR data from AGENTS.md experiments reflects direct context injection, not memory laundering, and is not comparable to the regular-doc laundering results. The relevant finding from these experiments is the hedging analysis of memory snapshots, which characterises the laundering *process* independently of the main-session exploitation mechanism.
 
-### 4.8.1 Hedging Comparison by Source File
+### 4.7.1 Hedging Comparison by Source File
 
 Memory snapshots were captured during the directive setup sessions across two projects (n=34 snapshots total):
 
@@ -587,7 +587,7 @@ Key distinctions from closest related work: Wang et al. [13] test direct injecti
 ## 5.5 Limitations
 
 - Single model (gpt-5.4) — different models may have different susceptibility
-- Single task prompt ("list files") — more complex tasks might produce different results
+- Some experiments used a single task prompt ("list files"), though cross-project experiments tested four task types (explore, comprehend, modify, multi-step) with substantial variation in ASR
 - OpenClaw-specific memory format — other agents (Claude Code, Cursor) handle memory differently
 - Setup prompt directiveness is a critical variable: the naturalistic-laundering experiment confirms that without an explicit "save to memory" instruction, ASR drops to 0%. This bounds the attack to workflows where the agent is actively instructed to take notes — the most realistic such scenario being a project onboarding session
 - Memory snapshots were collected for cross-project experiments (n=59 laundered runs) enabling ISR and hedging analysis, but not for the earlier ablation and laundered-confidence experiments (n=50 laundered runs). A unified snapshot collection across all experiments would strengthen the ISR analysis
@@ -667,7 +667,7 @@ Key distinctions from closest related work: Wang et al. [13] test direct injecti
 
 [17] Skywork AI, "OpenClaw Persistent Memory Ecosystem," *Skywork AI*, 2026. <https://skywork.ai/skypage/en/openclaw-persistent-memory-ecosystem/2038588759331311616>
 
-==[18] F. Perez and I. Ribeiro, "Ignore Previous Prompt: Attack Techniques For Language Models," in *ML Safety Workshop at NeurIPS 2022*, 2022. arXiv:2211.09527. <https://arxiv.org/abs/2211.09527>== ==NOTE: "(Best Paper Award)" removed — not verifiable from the primary source PDF. Re-add if independently confirmed.==
+[18] F. Perez and I. Ribeiro, "Ignore Previous Prompt: Attack Techniques For Language Models," in *ML Safety Workshop at NeurIPS 2022*, 2022. arXiv:2211.09527. <https://arxiv.org/abs/2211.09527>
 
 [19] S. Schulhoff, J. Pinto, A. Khan, L.-F. Bouchard, C. Si, S. Anati, V. Tagliabue, A. L. Kost, C. Carnahan, and J. Boyd-Graber, "Ignore This Title and HackAPrompt: Exposing Systemic Vulnerabilities of LLMs through a Global Scale Prompt Hacking Competition," in *Proc. EMNLP 2023* (Best Theme Paper), pages 4945–4977, Singapore, 2023. arXiv:2311.16119. <https://arxiv.org/abs/2311.16119>
 
