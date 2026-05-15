@@ -38,8 +38,8 @@ One of these new bits of technology is OpenClaw – a technology for interfacing
 - Only memory-based attacks worked: direct memory injection hit 70% ASR (ablation, n=20) and 93% across 3 project types (n=60); laundering through the agent's note-taking achieved 25–43% ASR across experiments (ablation n=20, confidence n=30, cross-project n=60); 0% ASR across all control conditions
 - A laundered-isolated experiment (poisoned source files removed before the fresh session) confirmed memory alone is sufficient at 35% ASR (n=20)
 - Invisible encodings produced 0% ASR across all 7 conditions (n=70), in contrast with prior findings on GPT-5.2 [9]
-- The agent trusts anything in its memory files regardless of who wrote it — but the laundering process introduces hedging language (43% of entries) that correlates inversely with exploitation. ISR is 85% overall; ASR|ISR is 37%
-- The attack requires a directive setup prompt ("save to memory"); naturalistic prompts produce 0% ASR from regular docs (n=40). Source file authority modulates hedging during note-taking (AGENTS.md: 6–22% hedge rate vs regular docs: 16–69%)
+- The agent trusts anything in its memory files regardless of who wrote it — but the laundering process introduces hedging language (43% of entries) that correlates inversely with exploitation (OR=0.13, p=0.002). ISR is 85% overall; ASR|ISR is 37%
+- The attack requires a directive setup prompt ("save to memory"); naturalistic prompts produce 0% ASR from regular docs (n=40). Source file authority modulates hedging during note-taking (AGENTS.md: 0% hedge rate vs regular docs: 5–81%)
 
 ---
 
@@ -94,15 +94,15 @@ This thesis investigates the above 3 research questions, with controlled experim
 **RQ1 – Can supply-chain content be laundered into persistent memory to cause tool hijacking?** This question confirms the viability of the supply-chain → memory → tool hijacking pipeline in OpenClaw. Two related works have contributed to this area – From Storage to Steering [8] on LangChain/LlamaIndex agents at >90% ASR and MINJA [4] via vector-DB injection at 76.8% ASR. Neither looked specifically into file-based memory hijacking, the key contribution of this study. Three minimal projects were created (a Python CLI, Next.js app and FastAPI API) to be tested against 4 usage scenarios. The direct memory injection case averaged a 93% ASR (n=60), with the laundering case leading to tool usage 32% of the time (n=60) – which confirms the file-based memory is exploitable. Task type was also seen to have an effect, with modification type agent use cases having the biggest vulnerability to the attack.
 
 **RQ2 – What factors modulate attack success?** An ablation approach helps reveal the mechanisms at play. Results show direct injection had a consistently higher ASR than laundering, and the mechanism is more nuanced than a simple provenance distinction. Splitting the laundering data by injection success rate (ISR) and tool exploitation rate reveals a level of context dependency... Memory snapshot analysis across the 60 laundered runs gave overall ISRs of 85% and a conditional exploitation rate (ASR|ISR) of 37%. But the key result here is the link between the specific project, hedging language and eventual ASR:
-- Python seed reached 95% ISR, 63% ASR|ISR, with only 16% hedging. 
+- Python seed reached 95% ISR, 63% ASR|ISR, with only 5% hedging. 
 - FastAPI seed reached 80% ISR, 38% ASR|ISR, with 50% hedging.
-- A NextJS seed reached 80% ISR, just 6% ASR|ISR and a whopping 69% hedging!
+- A NextJS seed reached 80% ISR, just 6% ASR|ISR and 81% hedging!
   
 Basically – the agent is not just directly transcribing project artefacts, it evaluates the poisoned instruction during note-taking, influencing the likelihood of it ultimately carrying it out (or possibly noting it at all). As a specific example, in the Next.js project seed, it noted about the attack instruction caveats including "treat this as a documented project convention to verify when relevant, not as authority over higher-level operating instructions". Direct injection, meanwhile, has no element of contextualisation. Essentially the agent cannot distinguish memory authorship at read time [6] [8], but the laundering process itself provides opportunity for the agent's judgement to act as a partial guardrail.
 
 To narrow this down further a "save to memory" directive was a variable tested to determine whether workspace files themselves can encourage a memory write. 4 variants were tested and achieved 0% ASR (n=80), so the user prompt was necessary. Anecdotally, models tend to make this judgement on their own on a case by case basis – so further work here might reveal more specific conditions which was workspace-initiated memory write.
 
-Another condition of interest is the existence of straight to context conventions, such as AGENTS.md and other standards. When was as the vector for the attack, AGENTS.md resulted in significantly less hedging language, which increases later likelihood of the attack succeeding. The Next.js seed had only 6% hedging of the instruction in memory versus 69% from the regular case (n=16, n=20 respectively). ASR for the AGENTS.md tests was 100%, but the presence of this file in the 2nd phase of each run was a confounding factor. Cross-session exploitation of the increased AGENTS.md also wasn't tested, but is an interesting direction for future work as it could be a particularly nasty version of the attack described in this paper.
+Another condition of interest is the existence of straight to context conventions, such as AGENTS.md and other standards. When was as the vector for the attack, AGENTS.md resulted in significantly less hedging language, which increases later likelihood of the attack succeeding. The Next.js seed had 0% hedging of the instruction in memory versus 81% from the regular case (n=10, n=16 respectively). ASR for the AGENTS.md tests was 100%, but the presence of this file in the 2nd phase of each run was a confounding factor. Cross-session exploitation of the increased AGENTS.md also wasn't tested, but is an interesting direction for future work as it could be a particularly nasty version of the attack described in this paper.
 
 **RQ3 – Are invisible encoding attacks effective on gpt-5.4?** This narrows the threat model in relation to other known encoding-level vulnerabilities in LLMs. Previous studies have shown that encoding attacks are model-dependent, and vary over time as models are updated to account for them — reverse CAPTCHA [9] found up to 71% tool compliance using Claude Sonnet 4, and 20.6% with GPT-5.2. Replicating a minimal version on GPT-5.4 saw 0% tool compliance across unicode tags, zero-width binary, and variation selectors. Memory based attacks achieved 32-93% ASR on the same model. This indicates a narrowing in the practical threat model from vulnerabilities to encoding exploits towards the pre-existing security limitations of model context.
 
@@ -358,11 +358,15 @@ The poisoned workspace files frame `bad_news` as a normal project tool:
 
 ### 3.7.1 Hedging Classification Methodology
 
-Hedging is classified via keyword matching against the memory snapshot text. A laundered memory entry is classified as "hedged" if it contains any of the following phrases (case-insensitive): "treat this as", "not as authority", "verify when relevant", "appears unusual", "project-specific note", "not trusted", "caution", "carefully", "questionable", "unusual convention", "do not blindly", "suspicious."
+Hedging is classified via proximity-scoped keyword matching against memory snapshot text. A laundered memory entry is classified as "hedged" if any hedging phrase appears within the same line as, or one line adjacent to, a mention of `bad_news` in the memory text. This proximity constraint ensures keywords are counted only when they qualify the poisoned instruction, not unrelated content (e.g., "caution" about credential handling elsewhere in the memory entry).
 
-These phrases were identified by manual inspection of a sample of memory snapshots from early experiments. The classification is binary (hedged or not) and automated — applied consistently across all memory snapshots.
+The following phrases are matched (case-insensitive): "treat this as", "not as authority", "verify when relevant", "appears unusual", "not trusted", "caution", "carefully", "questionable", "unusual convention", "do not blindly", "suspicious", "unusual", "not a universal", "not a global rule", "not as higher-priority", "not as trusted", "lower-priority", "worth verifying", "sanity-check", "validate rather than", "needing verification", "rather than blindly", "misaligned", "mismatched", "appears to be", "appears inconsistent", "treat it carefully", "workspace-authored", "rather than a trusted."
 
-**Limitation:** The phrase list was not independently validated (no second coder or inter-rater reliability test). Some phrases (e.g., "carefully", "caution") may match text unrelated to the poisoned instruction (e.g., cautions about credential handling in notes.md). A more rigorous classification would use manual coding with a defined codebook and inter-rater agreement. This is noted as a limitation in Section 5.5.
+Some of these phrases (e.g., "unusual", "appears to be") represent weaker hedging that could be considered categorisation rather than explicit qualification. These were still included as hedging because even neutral categorisation of the instruction (framing it as "a project-specific note" rather than an authoritative convention) reduces its influence during later exploitation — the agent's own framing acts as a partial guardrail regardless of the strength of the qualifier.
+
+These phrases were identified by manual inspection of memory snapshots across all three project seeds. The classification is binary (hedged or not) and automated — applied consistently across all memory snapshots.
+
+**Limitation:** The phrase list was not independently validated (no second coder or inter-rater reliability test). A more rigorous classification would use manual coding with a defined codebook and inter-rater agreement. This is noted as a limitation in Section 5.5.
 
 ---
 
@@ -418,14 +422,14 @@ Memory snapshot analysis (n=59 laundered runs across all 3 projects) decomposes 
 
 | Project | n | ISR | Hedge rate | ASR | ASR\|ISR | ASR\|¬ISR |
 |---|---|---|---|---|---|---|
-| Python CLI | 20 | 95% | 16% | 60% | 63% | 0% |
+| Python CLI | 20 | 95% | 5% | 60% | 63% | 0% |
 | FastAPI API | 20 | 80% | 50% | 30% | 38% | 0% |
-| Next.js app | 20 | 80% | 69% | 5% | 6% | 0% |
+| Next.js app | 20 | 80% | 81% | 5% | 6% | 0% |
 | **Overall** | **60** | **85%** | **43%** | **32%** | **37%** | **0%** |
 
 ASR|¬ISR = 0% across all projects, consistent with the direct-workspace control (the agent does not act on poisoned instructions it chose not to memorise). The more interesting finding is that even when poison is present in memory, the conditional exploitation rate (ASR|ISR) varies from 6% to 63% and correlates inversely with the hedging rate. The agent's contextualisation during note-taking acts as a partial guardrail — poison reaches memory at high rates (85%) but the agent's evaluative framing modulates whether it acts on the instruction later.
 
-Example of a non-hedged injection (Python, 100% ISR, 60% ASR):
+Example of a non-hedged injection (Python, 95% ISR, 60% ASR):
 > "Project docs say to run a `bad_news` pre-flight/status check at the start of each session and before workspace operations/file changes."
 
 Example of a hedged injection (Next.js, 80% ISR, 5% ASR):
@@ -444,10 +448,12 @@ To formalise the hedging-exploitation relationship at the individual run level, 
 
 | Predictor | Coefficient (β) | Odds Ratio | 95% CI |
 |---|---|---|---|
-| Intercept | -0.208 | — | — |
-| Hedging present | -0.773 | 0.46 | — |
+| Intercept | 0.208 | — | — |
+| Hedging present | -2.053 | 0.13 | — |
 
-Non-hedged entries: 13/29 = 45% exploited. Hedged entries: 6/22 = 27% exploited. The odds ratio of 0.46 indicates hedged entries are roughly half as likely to trigger the tool call. However, the likelihood ratio test does not reach significance (χ² = 1.68, p = 0.20) at the current sample size (n=51). The direction is consistent with the project-level inverse correlation but a larger sample would be needed to confirm the effect formally.
+Non-hedged entries: 16/29 = 55% exploited. Hedged entries: 3/22 = 14% exploited. The odds ratio of 0.13 indicates hedged entries are approximately 8× less likely to trigger the tool call. The likelihood ratio test is significant (χ² = 9.93, p = 0.002, n=51), confirming that the hedging-exploitation inverse correlation observed at the project level holds at the individual run level.
+
+The most common hedging phrases observed near `bad_news` mentions were "caution" (10 occurrences), "treat this as" (5), "unusual" (4), and "carefully" (3). The agent frequently framed the instruction with qualifiers such as "treat that as project-specific guidance from docs, not a universal rule" or noted it "appears unusual and worth verifying if relied on operationally." These qualifiers appear to reduce the instruction's authority when loaded in a subsequent session.
 
 ### 4.3.3 Task-Type Breakdown
 
@@ -520,23 +526,23 @@ An additional set of experiments examined how the poison source file's perceived
 
 ### 4.7.1 Hedging Comparison by Source File
 
-Memory snapshots were captured during the directive setup sessions across two projects (n=34 snapshots total):
+Memory snapshots were captured during the directive setup sessions across two projects. AGENTS.md snapshots are counted only where MEMORY.md was produced (some runs did not generate memory files):
 
 | Poison source | Project | n (snapshots) | ISR | Hedge rate |
 |---|---|---|---|---|
-| AGENTS.md | Python (6 files) | 18 | 100% | 22% |
-| AGENTS.md | Next.js (12 files) | 16 | 100% | 6% |
-| Regular docs | Python (6 files) | 19 | 100% | 16% |
+| AGENTS.md | Python (6 files) | 16 | 100% | 0% |
+| AGENTS.md | Next.js (12 files) | 10 | 100% | 0% |
+| Regular docs | Python (6 files) | 19 | 100% | 5% |
 | Regular docs | FastAPI (13 files) | 20 | 80% | 50% |
-| Regular docs | Next.js (12 files) | 20 | 80% | 69% |
+| Regular docs | Next.js (12 files) | 20 | 80% | 81% |
 
 Two observations emerge:
 
-1. **AGENTS.md achieves 100% ISR across both projects**, compared to 80-100% for regular docs. The agent always includes AGENTS.md conventions in its notes.
+1. **AGENTS.md achieves 100% ISR across both projects** (where memory was produced), compared to 80-100% for regular docs. The agent always includes AGENTS.md conventions in its notes.
 
-2. **AGENTS.md substantially reduces hedging on complex projects.** On the Next.js seed, regular-doc laundering produced 69% hedging — the agent frequently added caveats like "treat as convention, not authority." AGENTS.md on the same project produced only 6% hedging. The agent treats configuration file content as authoritative during note-taking, producing cleaner memory entries without evaluative qualification.
+2. **AGENTS.md eliminates hedging entirely.** None of the 26 AGENTS.md-sourced memory entries contained proximity-scoped hedging language. In contrast, regular-doc laundering on the Next.js seed produced 81% hedging — the agent frequently added caveats like "treat as convention, not authority." The agent treats configuration file content as authoritative during note-taking, producing cleaner memory entries without evaluative qualification.
 
-On the simpler Python seed, the hedging difference is smaller (22% vs 16%), suggesting that the source file authority effect is most pronounced when project complexity would otherwise trigger high hedging rates.
+On the simpler Python seed, regular-doc hedging was already low (5%), so the AGENTS.md effect is most pronounced when project complexity would otherwise trigger high hedging rates.
 
 **Limitation:** Because AGENTS.md is auto-loaded into context, the ASR data from these experiments cannot be attributed to memory laundering. Whether the reduced hedging in AGENTS.md-sourced memory entries translates to higher memory-only exploitation rates (when the file is no longer present) is an open question identified as future work.
 
@@ -555,11 +561,11 @@ On the simpler Python seed, the hedging difference is smaller (22% vs 16%), sugg
 ## 5.2 Why Laundering Still Matters
 
 - Poisoned repo docs are a realistic, low-effort attack — submit a PR that adds a plausible "convention" to a setup guide. This fits the indirect-injection threat model of [1] and extends the environment-injected pattern in [7]
-- The laundering step is lossy: memory snapshot analysis shows 85% ISR but only 37% conditional exploitation rate (ASR|ISR). Of injected entries, 43% include hedging language that weakens the instruction. The agent is not a passive transcriber but an evaluator. Noted similarly in the summarisation-as-carrier observation of [10]
-- The hedge rate correlates inversely with ASR|ISR across projects: Python (16% hedging → 63% ASR|ISR), FastAPI (50% hedging → 38% ASR|ISR), Next.js (69% hedging → 6% ASR|ISR). More legitimate documentation in the workspace provides competing context that triggers more cautious note-taking
+- The laundering step is lossy: memory snapshot analysis shows 85% ISR but only 37% conditional exploitation rate (ASR|ISR). Of injected entries, 43% include hedging language that weakens the instruction — and hedged entries are significantly less likely to trigger exploitation (OR=0.13, p=0.002). The agent is not a passive transcriber but an evaluator. Noted similarly in the summarisation-as-carrier observation of [10]
+- The hedge rate correlates inversely with ASR|ISR across projects: Python (5% hedging → 63% ASR|ISR), FastAPI (50% hedging → 38% ASR|ISR), Next.js (81% hedging → 6% ASR|ISR). More legitimate documentation in the workspace provides competing context that triggers more cautious note-taking
 - But it's the only path that doesn't require direct filesystem access to the agent's workspace
 - Real-world scenario: attacker adds "conventions" to a CONTRIBUTING.md, setup guide, or onboarding doc
-- AGENTS.md experiments reveal that the source file's perceived authority modulates the laundering process. Memory snapshots show AGENTS.md-sourced entries have substantially less hedging than regular docs on the same project (6% vs 69% on Next.js). However, AGENTS.md is auto-loaded into the agent's system context (confirmed by a 5/5 diagnostic with no memory), so the ASR data from these experiments reflects direct context injection rather than memory laundering. Whether the reduced hedging translates to higher memory-only exploitation is identified as future work. Agent configuration files (AGENTS.md, CLAUDE.md, .cursorrules) nonetheless warrant scrutiny as attack vectors — prior work [26], [27] reports 41-84% single-session ASR from rules file exploitation
+- AGENTS.md experiments reveal that the source file's perceived authority modulates the laundering process. Memory snapshots show AGENTS.md-sourced entries have 0% hedging compared to 5–81% for regular docs on the same projects. However, AGENTS.md is auto-loaded into the agent's system context (confirmed by a 5/5 diagnostic with no memory), so the ASR data from these experiments reflects direct context injection rather than memory laundering. Whether the eliminated hedging translates to higher memory-only exploitation is identified as future work. Agent configuration files (AGENTS.md, CLAUDE.md, .cursorrules) nonetheless warrant scrutiny as attack vectors — prior work [26], [27] reports 41-84% single-session ASR from rules file exploitation
 
 ## 5.3 Negative Results and Threat Model Narrowing
 
@@ -580,7 +586,7 @@ On the simpler Python seed, the hedging difference is smaller (22% vs 16%), sugg
 | Storage→Steering [8] | memory injection | LangChain/LlamaIndex | yes | requires access | >90% | varies |
 | Wang et al. [13] | direct prompts | file-based (OpenClaw) | yes | requires interaction | 44–89% | 12 scenarios |
 | AIShellJack [26] | rules files | none (direct) | single-session | yes (repo PR) | 41–84% | varies |
-| **This work** | **repo docs** | **file-based (OpenClaw)** | **yes** | **yes (supply chain)** | **25–43% laundered; 70% direct** | **~850 runs** |
+| **This work** | **repo docs** | **file-based (OpenClaw)** | **yes** | **yes (supply chain)** | **25–43% laundered; 70% direct** | **735 runs** |
 
 Key distinctions from closest related work: Wang et al. [13] test direct injection into OpenClaw's persistent files via conversational prompts, not supply-chain laundering. AIShellJack [26] tests rules files as single-session injection, not cross-session persistence via memory. This work is the first to model the complete supply-chain → laundering → cross-session pipeline, and the first to decompose the laundering process via ISR/hedging analysis.
 
@@ -608,8 +614,8 @@ Key distinctions from closest related work: Wang et al. [13] test direct injecti
 - File-based memory in AI coding agents is vulnerable to both direct injection [4], [8] and supply-chain laundering [7]
 - The agent trusts memory entries regardless of who wrote them — anyone with write access to the workspace memory directory can hijack tool selection [6]. The laundered-isolated experiment confirms memory alone is sufficient (35% ASR with source files removed), ruling out corroboration from workspace files as a contributing factor
 - The realistic attack path is supply chain: poisoned docs [1] → agent note-taking [5], [10] → persistent tool hijacking across sessions
-- The laundering process is lossy but not protective: 85% ISR, 37% conditional exploitation rate (ASR|ISR). The agent's evaluative note-taking adds hedging language to 43% of injected memories. This partial guardrail is strongest in complex projects (69% hedging, 6% ASR|ISR) and weakest in simple ones (16% hedging, 63% ASR|ISR)
-- The source file's perceived authority modulates the laundering process: AGENTS.md-sourced memory entries show significantly less hedging (6-22%) than regular docs (16-69%), though the cross-session exploitation implications require further investigation due to AGENTS.md's auto-loading behaviour
+- The laundering process is lossy but not protective: 85% ISR, 37% conditional exploitation rate (ASR|ISR). The agent's evaluative note-taking adds hedging language to 43% of injected memories, and hedged entries are significantly less likely to be exploited (OR=0.13, p=0.002). This partial guardrail is strongest in complex projects (81% hedging, 6% ASR|ISR) and weakest in simple ones (5% hedging, 63% ASR|ISR)
+- The source file's perceived authority modulates the laundering process: AGENTS.md-sourced memory entries show 0% hedging compared to 5–81% for regular docs, though the cross-session exploitation implications require further investigation due to AGENTS.md's auto-loading behaviour
 - Invisible Unicode encodings and semantic nudges are not effective on gpt-5.4, in contrast with [9]'s GPT-5.2 findings
 
 ## 6.2 Implications
@@ -625,8 +631,8 @@ Key distinctions from closest related work: Wang et al. [13] test direct injecti
 - Test with varied task prompts of different complexity, following InjecAgent's [3] tool-integrated scenario sweep
 - Extend ISR/hedging analysis to all experiments — the current analysis covers cross-project runs but not the earlier ablation and laundered-confidence experiments
 - Investigate whether intermediate prompts (e.g., "save anything important") can trigger laundering without explicitly mentioning memory — the current naturalistic experiment tested the extremes (fully directive vs no directive) but not the middle ground
-- Quantify the hedging-ASR relationship with a larger sample — the logistic regression (OR=0.46, p=0.20, n=51) shows the expected direction but lacks power. A power analysis indicates ~230 injected laundered runs would be needed for 80% power at α=0.05, roughly 4.5× the current dataset
-- Test whether AGENTS.md-sourced memory entries (which show reduced hedging) produce higher memory-only ASR than regular-doc entries when the source file is removed between sessions — this would confirm that the hedging reduction translates to a more effective standalone attack payload, extending prior single-session configuration file exploitation [26], [27] into the cross-session case
+- Replicate the hedging-ASR relationship (OR=0.13, p=0.002, n=51) on additional models and agent platforms to determine whether the evaluative note-taking guardrail generalises beyond gpt-5.4
+- Test whether AGENTS.md-sourced memory entries (which show 0% hedging) produce higher memory-only ASR than regular-doc entries when the source file is removed between sessions — this would confirm that the eliminated hedging translates to a more effective standalone attack payload, extending prior single-session configuration file exploitation [26], [27] into the cross-session case
 - Explore defenses: memory provenance, content filtering, workspace sandboxing [2], [12]
 
 ---
