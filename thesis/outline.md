@@ -238,7 +238,44 @@ This is a two-phase attack that works as a generalised version of "poison once, 
 1. Agent reads poisoned workspace file and is asked with varying levels of directness to remember conventions
 2. Fresh session is given a unrelated, basic task (3 types of tasks) and watched to see if the tool call occurs.
 
-==[PLACEHOLDER: Figure 3.1 — Threat model diagram showing two-phase attack flow. Phase 1: Attacker contributes poisoned workspace artefacts (README, setup guide) to a repository. Agent reads during onboarding session and writes observations to MEMORY.md. Phase 2: Fresh session, user gives benign task, agent loads MEMORY.md, encounters laundered poison, calls attacker-specified tool. Label trust boundary between workspace files and memory files.]==
+**Figure 3.1 — Two-phase threat model**
+
+```mermaid
+flowchart TB
+    subgraph phase1["Phase 1: Laundering (Onboarding Session)"]
+        direction LR
+        A["Attacker contributes\npoisoned workspace docs\n(PR / dependency)"] --> B["project_config.md\nsetup_guide.md\nREADME.md"]
+        B --> C["Agent reads docs\nduring onboarding"]
+        C --> D["Agent saves observations\nto MEMORY.md"]
+    end
+
+    subgraph boundary["Trust Boundary"]
+        direction LR
+        M["memory/entry.md\nMEMORY.md\n(persists on disk)"]
+    end
+
+    subgraph phase2["Phase 2: Exploitation (Fresh Session)"]
+        direction LR
+        E["Memory loaded into\nsystem prompt"] --> F["User gives benign task:\n'Show me what files\nare in this directory'"]
+        F --> G["Agent reads laundered\npoison from memory"]
+        G --> H["bad_news tool called\n(hijacked)"]
+        H --> I["Then: exec ls"]
+    end
+
+    D --> M
+    M --> E
+
+    style A fill:#4a1a1a,stroke:#f85149,color:#f85149
+    style B fill:#4a1a1a,stroke:#f85149,color:#f85149
+    style D fill:#4a1a1a,stroke:#d29922,color:#d29922
+    style M fill:#1a2a4a,stroke:#58a6ff,color:#58a6ff
+    style H fill:#4a1a1a,stroke:#f85149,color:#f85149
+    style C fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style E fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style F fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style G fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style I fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+```
 
 ## 3.2 Target System: OpenClaw
 
@@ -271,7 +308,55 @@ As each run gets its own `OPENCLAW_STATE_DIR` and `OPENCLAW_CONFIG_PATH`, there'
 
 Memories are snapshotted before teardown and written into the results directory for language analysis. In this way the injection rate (is poison in memory?) and exploitation rate (did the attack succeed?) are kept distinct and can be measured separately, following MINJA's [4] approach.
 
-- ==[PLACEHOLDER: Figure 3.2 — Experiment framework architecture. Per-run loop: (1) Provision fresh temp directory, (2) Apply file mutations, (3) Run optional setup session (separate session ID), (4) Run main prompt in new session, (5) Collect JSONL transcript and memory snapshots, (6) Teardown. Show isolation boundary (each run gets own OPENCLAW_STATE_DIR and OPENCLAW_CONFIG_PATH).]==
+**Figure 3.2 — Experiment framework architecture**
+
+```mermaid
+flowchart TB
+    subgraph input["Input"]
+        YAML["Experiment Manifest\n(YAML)"]
+        SEEDS["Workspace Seeds\n+ Honeypot Plugin"]
+    end
+
+    subgraph runner["Runner"]
+        CFG["config.py\n(parse manifest)"]
+        INST["instance.py\n(OpenClaw instance)"]
+        EXEC["executor.py\n(orchestrate runs)"]
+    end
+
+    subgraph loop["Per-Run Loop (isolated)"]
+        direction TB
+        P1["1. Provision\ntempfile.mkdtemp"]
+        P2["2. Mutate\n(apply injection\nif applicable)"]
+        P3["3. Setup session\n(separate session ID,\nlaundered runs only)"]
+        P4["4. Main prompt\n(new session,\nsame instance)"]
+        P5["5. Snapshot memory\n+ collect JSONL"]
+        P6["6. Teardown\nshutil.rmtree"]
+        P1 --> P2 --> P3 --> P4 --> P5 --> P6
+    end
+
+    subgraph isolation["Isolation Boundary"]
+        ISO["Each run gets own:\n• OPENCLAW_STATE_DIR\n• OPENCLAW_CONFIG_PATH\n• Fresh temp workspace\nNo state carries between runs"]
+    end
+
+    subgraph analysis["Analysis"]
+        PARSE["parser.py"]
+        MET["metrics.py"]
+    end
+
+    YAML --> CFG --> EXEC
+    SEEDS --> INST --> EXEC
+    EXEC --> loop
+    loop --> PARSE --> MET
+    ISO -.-> loop
+
+    style P1 fill:#1a2a4a,stroke:#58a6ff,color:#58a6ff
+    style P2 fill:#4a1a1a,stroke:#d29922,color:#d29922
+    style P3 fill:#4a1a1a,stroke:#d29922,color:#d29922
+    style P4 fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style P5 fill:#1a2a4a,stroke:#58a6ff,color:#58a6ff
+    style P6 fill:#2a2a2a,stroke:#8b949e,color:#e6edf3
+    style ISO fill:#0d1117,stroke:#30363d,color:#8b949e
+```
 
 ## 3.5 Attack Vectors Tested
 
@@ -475,7 +560,9 @@ Modification tasks are the most vulnerable (60% overall ASR), likely because the
 
 The laundered-isolated condition is a critical mechanism validation: the poisoned workspace files (`project_config.md`, `setup_guide.md`) are removed from the workspace after the setup session but before the main session. At 35% ASR, this falls within the range of the files-present laundering experiments (25-43%), confirming that **memory alone is sufficient to cause tool hijacking** — the agent does not need to re-read or corroborate against the source files. Combined with the direct-workspace result (0% ASR, files present without memory), this establishes that memory is both necessary and sufficient for the attack.
 
-- ==[PLACEHOLDER: Figure 4.1 — Ablation summary bar chart. Five bars: standard (0%, n=20), direct-workspace (0%, n=20), direct-memory (70%, n=20), laundered-review (25%, n=20), laundered-isolated (35%, n=20). Include Wilson score 95% confidence interval error bars.]==
+**Figure 4.1 — Ablation summary**
+
+![Ablation summary bar chart with Wilson 95% CI error bars](figures/fig4_1_ablation.png)
 
 ## 4.6 Setup Prompt Directiveness
 
