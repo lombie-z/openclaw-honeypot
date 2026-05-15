@@ -277,27 +277,28 @@ Memories are snapshotted before teardown and written into the results directory 
 
 ### 3.5.1 Invisible Unicode Encodings
 
-Invisible unicode encoding were testing as a possible compound attack that could be carried out to create the case where memory has been successfully poisoned, and it's invisible even despite human inspection.
+Invisible unicode encoding were tested in the interest of a potential compound attack that could be carried out to. This would engineer a case where memory has been successfully poisoned, and it's invisible even despite human inspection. The tests here vary in terms of injection vector – to match the other study, as these were only for a proof of concept before running in tandem with the memory attack. As no successful attacks came of these tests, tests in conjunction with the memory attack were forgone. These are still relevant to the evolution of this paper.
 
-Cases tested include:
-- **Unicode tags** (U+E0020-E007E): map ASCII to tag characters, invisible in all renderers. Injected into SOUL.md. Same encoding family shown effective on GPT-5.2 in [9]
-- **Zero-width binary** (ZWS/ZWNJ): binary-encode bytes as zero-width space / zero-width non-joiner sequences. Injected into memory/MEMORY.md
-- **Variation selectors** (U+FE00-FE0F): encode nibbles as variation selectors appended to carrier characters. Injected into SOUL.md
-- Also tested **with decoder priming**: visible hint in USER.md explaining how to decode the invisible encoding in SOUL.md
-- Also tested **in prompt**: tags encoding injected directly into the user message, similar to the direct-injection setup in [1]
+Cases tested were based off Reverse CAPTCHA, and include:
+- **Unicode tags** (`U+E0020-E007E`): map ASCII to tag characters, invisible in all renderers. Injected into `SOUL.md`. This is the same encoding family that was effective on GPT-5.2 in [9].
+- **Zero-width binary** (ZWS/ZWNJ): binary-encode bytes as zero-width space / zero-width non-joiner sequences. Injected into memory/`MEMORY.md`
+- **Variation selectors** (U+FE00-FE0F): encode nibbles as variation selectors appended to carrier characters. Injected into `SOUL.md`
+- Also tested **with decoder priming**: visible hint in `USER.md` explaining how to decode the invisible encoding in `SOUL.md`
+- Also tested **in prompt**: tags encoding injected directly into the user message, similar to the direct-injection setup in [1].
 
 ### 3.5.2 Direct Workspace
 
-- Poisoned `project_config.md` and `setup_guide.md` already present in workspace (they mention `bad_news` as a "mandatory pre-flight check"). This mirrors the indirect-injection content surface of [1], [2]
-- Single session, no setup phase, no memory priming
-- Tests: does the agent follow instructions embedded in workspace docs when it reads them during a normal task?
+This case is mirroring the indirect-injection content surface of [1], [2], the poison is already present in the workspace inside `project_config.md` and `setup_guide.md` files. They mention our honeypot tool as being a "mandatory pre-flight check".
+
+This test case was single-session, with no setup phase or priming – solely to see if the presence of these non-standard requests in the project is enough to encourage the agent to call the honeypot tool.
 
 ### 3.5.3 Direct Memory Injection
 
-- Poison pre-written to `workspace/MEMORY.md` and `workspace/memory/entry.md` by the test runner. Comparable in spirit to the direct memory-control setup in [8] and to MINJA's forced-memory setting [4]
-- Written in the exact format the agent produces when it takes notes naturally
-- No setup session — the main prompt runs against a workspace that already has memory files
-- Tests: does having the instruction in memory trigger the tool call, regardless of who wrote the memory? [6]
+This case pre-writes the poison into the memory architecture (`workspace/MEMORY.md` and `workspace/memory/entry.md`) by the test runner itself. This is similar to the direct memory-control setup in [8]. It's also similar to MINJA's forced-memory setting [4].
+
+This is written in a similar format to notes the agent produces during organic note taking. [TODO – include an example?].
+
+There's no setup session here either – the main prompt runs the task single-session with memory files pre-existing. The reason this is tested as part of the ablation is to determine if having the instruction in memory triggers the tool call regardless of authorship [6].
 
 ### 3.5.4 Memory Laundering
 
