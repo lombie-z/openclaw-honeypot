@@ -83,13 +83,20 @@ def analyze_snapshots(results_dir: Path, prefix: str = "laundered-"):
 
     results = []
     for snap_dir in snapshot_dirs:
+        texts = []
         memory_file = snap_dir / "MEMORY.md"
-        if not memory_file.exists():
+        if memory_file.exists():
+            texts.append(memory_file.read_text())
+        for f in sorted(snap_dir.glob("*.md")):
+            if f.name != "MEMORY.md":
+                texts.append(f.read_text())
+
+        if not texts:
             continue
 
-        text = memory_file.read_text()
-        injected = has_injection(text)
-        hedged, phrases = classify_hedging(text) if injected else (False, [])
+        combined = "\n".join(texts)
+        injected = has_injection(combined)
+        hedged, phrases = classify_hedging(combined) if injected else (False, [])
 
         results.append({
             "run_id": snap_dir.name.replace("-memory", ""),
